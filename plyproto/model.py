@@ -3,11 +3,44 @@ __copyright__ = "Copyright (C) 2014 Dusan (ph4r05) Klinec"
 __license__ = "Apache License, Version 2.0"
 __version__ = "1.0"
 
+class Visitor(object):
+
+    def __init__(self, verbose=False):
+        self.verbose = verbose
+
+    def __getattr__(self, name):
+        if not name.startswith('visit_'):
+            raise AttributeError('name must start with visit_ but was {}'
+                                 .format(name))
+
+        def f(element):
+            if self.verbose:
+                msg = 'unimplemented call to {}; ignoring ({})'
+                print(msg.format(name, element))
+            return True
+        return f
+
+    # visitor.visit_PackageStatement(self)
+    # visitor.visit_ImportStatement(self)
+    # visitor.visit_OptionStatement(self)
+    # visitor.visit_FieldDirective(self)
+    # visitor.visit_FieldType(self)
+    # visitor.visit_FieldDefinition(self)
+    # visitor.visit_EnumFieldDefinition(self)
+    # visitor.visit_EnumDefinition(self)
+    # visitor.visit_MessageDefinition(self)
+    # visitor.visit_MessageExtension(self)
+    # visitor.visit_MethodDefinition(self)
+    # visitor.visit_ServiceDefinition(self)
+    # visitor.visit_ExtensionsDirective(self)
+    # visitor.visit_Literal(self)
+    # visitor.visit_Name(self)
+
 # Base node
 class SourceElement(object):
     '''
-    A SourceElement is the base class for all elements that occur in a Java
-    file parsed by plyj.
+    A SourceElement is the base class for all elements that occur in a Protocol Buffers
+    file parsed by plyproto.
     '''
     def __init__(self):
         super(SourceElement, self).__init__()
@@ -31,14 +64,14 @@ class SourceElement(object):
     def accept(self, visitor):
         pass
 
-class PackageDeclaration(SourceElement):
+class PackageStatement(SourceElement):
     def __init__(self, name):
-        super(PackageDeclaration, self).__init__()
+        super(PackageStatement, self).__init__()
         self._fields = ['name']
         self.name = name
 
     def accept(self, visitor):
-        visitor.visit_PackageDeclaration(self)
+        visitor.visit_PackageStatement(self)
 
 class ImportStatement(SourceElement):
     def __init__(self, name):
@@ -49,38 +82,38 @@ class ImportStatement(SourceElement):
     def accept(self, visitor):
         visitor.visit_ImportStatement(self)
 
-class OptionDefinition(SourceElement):
+class OptionStatement(SourceElement):
     def __init__(self, name, value):
-        super(OptionDefinition, self).__init__()
+        super(OptionStatement, self).__init__()
         self._fields = ['name', 'value']
         self.name = name
         self.value = value
 
     def accept(self, visitor):
-        visitor.visit_OptionDefinition(self)
+        visitor.visit_OptionStatement(self)
 
-class FieldDirectiveDeclaration(SourceElement):
+class FieldDirective(SourceElement):
     def __init__(self, name, value):
-        super(FieldDirectiveDeclaration, self).__init__()
+        super(FieldDirective, self).__init__()
         self._fields = ['name', 'value']
         self.name = name
         self.value = value
 
     def accept(self, visitor):
-        visitor.visit_FieldDirectiveDeclaration(self)
+        visitor.visit_FieldDirective(self)
 
-class FieldPrimitiveType(SourceElement):
+class FieldType(SourceElement):
     def __init__(self, name):
-        super(FieldPrimitiveType, self).__init__()
+        super(FieldType, self).__init__()
         self._fields = ['name']
         self.name = name
 
     def accept(self, visitor):
-        visitor.visit_FieldPrimitiveType(self)
+        visitor.visit_FieldType(self)
 
-class FieldDeclaration(SourceElement):
+class FieldDefinition(SourceElement):
     def __init__(self, field_modifier, ftype, name, fieldId, fieldDirective):
-        super(FieldDeclaration, self).__init__()
+        super(FieldDefinition, self).__init__()
         self._fields = ['field_modifier', 'ftype', 'name', 'fieldId', 'fieldDirective']
         self.name = name
         self.field_modifier = field_modifier
@@ -89,39 +122,39 @@ class FieldDeclaration(SourceElement):
         self.fieldDirective = fieldDirective
 
     def accept(self, visitor):
-        visitor.visit_FieldDeclaration(self)
+        visitor.visit_FieldDefinition(self)
 
-class EnumFieldDeclaration(SourceElement):
+class EnumFieldDefinition(SourceElement):
     def __init__(self, name, fieldId):
-        super(EnumFieldDeclaration, self).__init__()
+        super(EnumFieldDefinition, self).__init__()
         self._fields = ['name', 'fieldId']
         self.name = name
         self.fieldId = fieldId
 
     def accept(self, visitor):
-        visitor.visit_EnumFieldDeclaration(self)
+        visitor.visit_EnumFieldDefinition(self)
 
-class EnumDeclaration(SourceElement):
+class EnumDefinition(SourceElement):
     def __init__(self, name, body):
-        super(EnumDeclaration, self).__init__()
+        super(EnumDefinition, self).__init__()
         self._fields = ['name', 'body']
         self.name = name
         self.body = body
 
     def accept(self, visitor):
-        if visitor.visit_EnumDeclaration(self):
+        if visitor.visit_EnumDefinition(self):
             for s in self.body:
                 s.accept(visitor)
 
-class MessageDeclaration(SourceElement):
+class MessageDefinition(SourceElement):
     def __init__(self, name, body):
-        super(MessageDeclaration, self).__init__()
+        super(MessageDefinition, self).__init__()
         self._fields = ['name', 'body']
         self.name = name
         self.body = body
 
     def accept(self, visitor):
-        if visitor.visit_MessageDeclaration(self):
+        if visitor.visit_MessageDefinition(self):
             for s in self.body:
                 s.accept(visitor)
 
@@ -148,15 +181,15 @@ class MethodDefinition(SourceElement):
     def accept(self, visitor):
         visitor.visit_MethodDefinition(self)
 
-class ServiceDeclaration(SourceElement):
+class ServiceDefinition(SourceElement):
     def __init__(self, name, body):
-        super(ServiceDeclaration, self).__init__()
+        super(ServiceDefinition, self).__init__()
         self._fields = ['name', 'body']
         self.name = name
         self.body = body
 
     def accept(self, visitor):
-        if visitor.visit_ServiceDeclaration(self):
+        if visitor.visit_ServiceDefinition(self):
             for s in self.body:
                 s.accept(visitor)
 
@@ -200,19 +233,3 @@ class Name(SourceElement):
         visitor.visit_Name(self)
 
 
-class Visitor(object):
-
-    def __init__(self, verbose=False):
-        self.verbose = verbose
-
-    def __getattr__(self, name):
-        if not name.startswith('visit_'):
-            raise AttributeError('name must start with visit_ but was {}'
-                                 .format(name))
-
-        def f(element):
-            if self.verbose:
-                msg = 'unimplemented call to {}; ignoring ({})'
-                print(msg.format(name, element))
-            return True
-        return f

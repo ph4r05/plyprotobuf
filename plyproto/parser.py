@@ -108,7 +108,7 @@ class ProtobufParser(object):
 
     def p_field_directive(self, p):
         '''field_directive : LBRACK NAME EQ rvalue RBRACK'''
-        p[0] = FieldDirectiveDeclaration(Name(p[2]), p[4])
+        p[0] = FieldDirective(Name(p[2]), p[4])
 
     def p_field_directive_times(self, p):
         '''field_directive_times : field_directive_plus'''
@@ -128,7 +128,7 @@ class ProtobufParser(object):
 
     def p_field_type(self, p):
         '''field_type : primitive_type'''
-        p[0] = FieldPrimitiveType(p[1])
+        p[0] = FieldType(p[1])
 
     def p_field_type2(self, p):
         '''field_type : NAME'''
@@ -137,12 +137,12 @@ class ProtobufParser(object):
     # Root of the field declaration.
     def p_field_definition(self, p):
         '''field_definition : field_modifier field_type NAME EQ field_id field_directive_times SEMI'''
-        p[0] = FieldDeclaration(p[1], p[2], Name(p[3]), p[5], p[6])
+        p[0] = FieldDefinition(p[1], p[2], Name(p[3]), p[5], p[6])
 
     # Root of the enum field declaration.
     def p_enum_field(self, p):
         '''enum_field : NAME EQ NUM SEMI'''
-        p[0] = EnumFieldDeclaration(Name(p[1]), p[3])
+        p[0] = EnumFieldDefinition(Name(p[1]), p[3])
 
     def p_enum_body_part(self, p):
         '''enum_body_part : enum_field
@@ -169,7 +169,7 @@ class ProtobufParser(object):
     # enum_definition ::= 'enum' ident '{' { ident '=' integer ';' }* '}'
     def p_enum_definition(self, p):
         '''enum_definition : ENUM NAME LBRACE enum_body_opt RBRACE'''
-        p[0] = EnumDeclaration(Name(p[2]), p[4])
+        p[0] = EnumDefinition(Name(p[2]), p[4])
 
     def p_extensions_to(self, p):
         '''extensions_to : MAX'''
@@ -215,7 +215,7 @@ class ProtobufParser(object):
     # message_definition = MESSAGE_ - ident("messageId") + LBRACE + message_body("body") + RBRACE
     def p_message_definition(self, p):
         '''message_definition : MESSAGE NAME LBRACE message_body RBRACE'''
-        p[0] = MessageDeclaration(Name(p[2]), p[4])
+        p[0] = MessageDefinition(Name(p[2]), p[4])
 
     # method_definition ::= 'rpc' ident '(' [ ident ] ')' 'returns' '(' [ ident ] ')' ';'
     def p_method_definition(self, p):
@@ -238,12 +238,12 @@ class ProtobufParser(object):
     # service_definition = SERVICE_ - ident("serviceName") + LBRACE + ZeroOrMore(Group(method_definition)) + RBRACE
     def p_service_definition(self, p):
         '''service_definition : SERVICE NAME LBRACE method_definition_opt RBRACE'''
-        p[0] = ServiceDeclaration(Name(p[2]), p[4])
+        p[0] = ServiceDefinition(Name(p[2]), p[4])
 
     # package_directive ::= 'package' ident [ '.' ident]* ';'
     def p_package_directive(self,p):
         '''package_directive : PACKAGE NAME SEMI'''
-        p[0] = PackageDeclaration(Name(p[2]))
+        p[0] = PackageStatement(Name(p[2]))
 
     # import_directive = IMPORT_ - quotedString("importFileSpec") + SEMI
     def p_import_directive(self, p):
@@ -263,7 +263,7 @@ class ProtobufParser(object):
     # option_directive = OPTION_ - ident("optionName") + EQ + quotedString("optionValue") + SEMI
     def p_option_directive(self, p):
         '''option_directive : OPTION NAME EQ option_rvalue SEMI'''
-        p[0] = OptionDefinition(Name(p[2]), p[4])
+        p[0] = OptionStatement(Name(p[2]), p[4])
 
     # topLevelStatement = Group(message_definition | message_extension | enum_definition | service_definition | import_directive | option_directive)
     def p_topLevel(self,p):
