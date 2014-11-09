@@ -26,7 +26,7 @@ This work was inspired by:
 * [PLYTalk] [4], nice tutorial for PLY I used.
  
 ## Disclaimer
-* This project was created because I needed it for myself and I didn't found Protocol Buffers parser for PLY. 
+* This project was created because I needed it for myself and I didn't find Protocol Buffers parser for PLY. 
 It is my first PLY / parser generator project and the first version was created in couple hours so it is not polished code. 
 * There already exist Protocol Buffer parsing variant as [pyparsing] [3] example, but my previous scripts used 
 PLY for parsing Java so I chosen to stay with PLY and to create Protocol Buffer variant for PLY. I like the output I can get from PLY
