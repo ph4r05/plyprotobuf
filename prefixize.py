@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 """
 Adds ObjectiveC prefixes to the Protocol Buffers entities.
+Used with Protoc objective C compiler: https://github.com/alexeyxo/protobuf-objc
 
 @author Ph4r05
 """
