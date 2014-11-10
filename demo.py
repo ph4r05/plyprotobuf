@@ -14,7 +14,7 @@ message Person {
 
 test3 = """package tutorial;
 option java_outer_classname = "PushNotifications";
-option optimize_for = "SPEED";
+option optimize_for = SPEED;
 
   message Person {
       required string name = 1;

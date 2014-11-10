@@ -36,6 +36,46 @@ class Visitor(object):
     # visitor.visit_Name(self)
     # visitor.visit_Proto(self)
 
+# Lexical unit - contains lexspan and linespan for later analysis.
+class LU(object):
+    def __init__(self, p, idx):
+        self.p = p
+        self.idx = idx
+        self.pval = p[idx]
+        self.lexspan = p.lexspan(idx)
+        self.linespan = p.linespan(idx)
+
+        # If string is in the value (raw value) and start and stop lexspan is the same, add real span
+        # obtained by string length.
+        if isinstance(self.pval, str) \
+                and self.lexspan != None \
+                and self.lexspan[0] == self.lexspan[1] \
+                and self.lexspan[0] != 0:
+            self.lexspan = tuple([self.lexspan[0], self.lexspan[0] + len(self.pval)])
+        super(LU, self).__init__()
+
+    @staticmethod
+    def i(p, idx):
+        if isinstance(p[idx], LU): return p[idx]
+        if isinstance(p[idx], str): return LU(p, idx)
+        return p[idx]
+
+    def describe(self):
+        return "LU(%s,%s)" % (self.pval,  self.lexspan)
+
+    def __str__(self):
+        return self.pval
+
+    def __repr__(self):
+        return self.describe()
+
+    def accept(self, visitor):
+        pass
+
+    def __iter__(self):
+        for x in self.pval:
+            yield x
+
 # Base node
 class SourceElement(object):
     '''
@@ -232,6 +272,7 @@ class Name(SourceElement):
         super(Name, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['value']
         self.value = value
+        self.deriveLex()
 
     def append_name(self, name):
         try:
@@ -239,8 +280,36 @@ class Name(SourceElement):
         except:
             self.value = self.value + '.' + name
 
+    def deriveLex(self):
+        if hasattr(self.value, "lexspan"):
+            self.lexspan = self.value.lexspan
+            self.linespan = self.value.linespan
+        else:
+            return
+
     def accept(self, visitor):
         visitor.visit_Name(self)
+
+class DotName(Name):
+    elements = []
+    def __init__(self, elements, linespan=None, lexspan=None, p=None):
+        super(DotName, self).__init__('.'.join([str(x) for x in elements]), linespan=linespan, lexspan=lexspan, p=p)
+        self._fields += ['elements']
+        self.elements = elements
+        self.deriveLex()
+
+    def deriveLex(self):
+        if isinstance(self.elements, list) and len(self.elements)>0:
+            self.lexspan = (min([x.lexspan[0] for x in self.elements if x.lexspan[0] != 0]), max([x.lexspan[1] for x in self.elements if x.lexspan[1] != 0]))
+            self.linespan = (min([x.linespan[0] for x in self.elements if x.linespan[0] != 0]), max([x.linespan[1] for x in self.elements if x.linespan[1] != 0]))
+        elif hasattr(self.elements, "lexspan"):
+            self.lexspan = self.elements.lexspan
+            self.linespan = self.elements.linespan
+        else:
+            return
+
+    def accept(self, visitor):
+        visitor.visit_DotName(self)
 
 class ProtoFile(SourceElement):
 

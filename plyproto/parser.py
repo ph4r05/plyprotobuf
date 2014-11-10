@@ -21,7 +21,7 @@ class ProtobufLexer(object):
 
         'LBRACE', 'RBRACE', 'LBRACK', 'RBRACK',
         'LPAR', 'RPAR', 'EQ', 'SEMI', 'DOT',
-        'PLUSPLUSPLUS'
+        'STARTTOKEN'
 
     ] + [k.upper() for k in keywords]
     literals = '()+-*/=?:,.^|&~!=[]{};<>@%'
@@ -44,7 +44,7 @@ class ProtobufLexer(object):
     t_SEMI = ';'
     t_DOT = '\\.'
     t_ignore = ' \t\f'
-    t_PLUSPLUSPLUS = '\\+\\+\\+'
+    t_STARTTOKEN = '\\+'
 
     def t_NAME(self, t):
         '[A-Za-z_$][A-Za-z0-9_$]*'
@@ -66,33 +66,53 @@ class ProtobufLexer(object):
         t.lexer.skip(1)
 
 class LexHelper:
-    @staticmethod
-    def get_max_linespan(p):
+    offset = 0
+    def get_max_linespan(self, p):
+        defSpan=[1e60, -1]
         mSpan=[1e60, -1]
         for sp in range(0, len(p)):
             csp = p.linespan(sp)
-            if csp[0]==0 and csp[1]==0: continue
+            if csp[0] == 0 and csp[1] == 0:
+                if hasattr(p[sp], "linespan"):
+                    csp = p[sp].linespan
+                else:
+                    continue
+            if csp == None or len(csp) != 2: continue
+            if csp[0] == 0 and csp[1] == 0: continue
             if csp[0] < mSpan[0]: mSpan[0] = csp[0]
             if csp[1] > mSpan[1]: mSpan[1] = csp[1]
-        return tuple(mSpan)
+        if defSpan == mSpan: return (0,0)
+        return tuple([mSpan[0]-self.offset, mSpan[1]-self.offset])
 
-    @staticmethod
-    def get_max_lexspan(p):
+    def get_max_lexspan(self, p):
+        defSpan=[1e60, -1]
         mSpan=[1e60, -1]
         for sp in range(0, len(p)):
             csp = p.lexspan(sp)
-            if csp[0]==0 and csp[1]==0: continue
+            if csp[0] == 0 and csp[1] == 0:
+                if hasattr(p[sp], "lexspan"):
+                    csp = p[sp].lexspan
+                else:
+                    continue
+            if csp == None or len(csp) != 2: continue
+            if csp[0] == 0 and csp[1] == 0: continue
             if csp[0] < mSpan[0]: mSpan[0] = csp[0]
             if csp[1] > mSpan[1]: mSpan[1] = csp[1]
-        return tuple(mSpan)
+        if defSpan == mSpan: return (0,0)
+        return tuple([mSpan[0]-self.offset, mSpan[1]-self.offset])
 
-    @staticmethod
-    def set_parse_object(dst, p):
-        dst.setLexData(linespan=LexHelper.get_max_linespan(p), lexspan=LexHelper.get_max_lexspan(p))
+    def set_parse_object(self, dst, p):
+        dst.setLexData(linespan=self.get_max_linespan(p), lexspan=self.get_max_lexspan(p))
         dst.setLexObj(p)
 
 class ProtobufParser(object):
     tokens = ProtobufLexer.tokens
+    offset = 0
+    lh = LexHelper()
+
+    def setOffset(self, of):
+        self.offset = of
+        self.lh.offset = of
 
     def p_empty(self, p):
         '''empty :'''
@@ -102,7 +122,7 @@ class ProtobufParser(object):
         '''field_modifier : REQUIRED
                           | OPTIONAL
                           | REPEATED'''
-        p[0] = p[1]
+        p[0] = LU.i(p,1)
 
     def p_primitive_type(self, p):
         '''primitive_type : DOUBLE
@@ -120,26 +140,28 @@ class ProtobufParser(object):
                           | BOOL
                           | STRING
                           | BYTES'''
-        p[0] = p[1]
+        p[0] = LU.i(p,1)
 
     def p_field_id(self, p):
         '''field_id : NUM'''
-        p[0] = p[1]
+        p[0] = LU.i(p,1)
 
     def p_rvalue(self, p):
         '''rvalue : NUM
                   | TRUE
                   | FALSE'''
-        p[0] = p[1]
+        p[0] = LU.i(p,1)
 
     def p_rvalue2(self, p):
         '''rvalue : NAME'''
-        p[0] = Name(p[1])
+        p[0] = Name(LU.i(p, 1))
+        self.lh.set_parse_object(p[0], p)
+        p[0].deriveLex()
 
     def p_field_directive(self, p):
         '''field_directive : LBRACK NAME EQ rvalue RBRACK'''
-        p[0] = FieldDirective(Name(p[2]), p[4])
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = FieldDirective(Name(LU.i(p, 2)), LU.i(p,4))
+        self.lh.set_parse_object(p[0], p)
 
     def p_field_directive_times(self, p):
         '''field_directive_times : field_directive_plus'''
@@ -160,36 +182,42 @@ class ProtobufParser(object):
     def p_dotname(self, p):
         '''dotname : NAME
                    | dotname DOT NAME'''
-        p[0] = p[1]
+        if len(p) == 2:
+            p[0] = [LU(p,1)]
+        else:
+            p[0] = p[1] + [LU(p,3)]
 
     # Hack for cases when there is a field named 'message' or 'max'
     def p_fieldName(self, p):
         '''field_name : NAME
                       | MESSAGE
                       | MAX'''
-        p[0] = p[1]
+        p[0] = Name(LU.i(p,1))
+        self.lh.set_parse_object(p[0], p)
+        p[0].deriveLex()
 
     def p_field_type(self, p):
         '''field_type : primitive_type'''
-        p[0] = FieldType(p[1])
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = FieldType(LU.i(p,1))
+        self.lh.set_parse_object(p[0], p)
 
     def p_field_type2(self, p):
         '''field_type : dotname'''
-        p[0] = Name(p[1])
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = DotName(LU.i(p, 1))
+        self.lh.set_parse_object(p[0], p)
+        p[0].deriveLex()
 
     # Root of the field declaration.
     def p_field_definition(self, p):
         '''field_definition : field_modifier field_type field_name EQ field_id field_directive_times SEMI'''
-        p[0] = FieldDefinition(p[1], p[2], Name(p[3]), p[5], p[6])
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = FieldDefinition(LU.i(p,1), LU.i(p,2), LU.i(p, 3), LU.i(p,5), LU.i(p,6))
+        self.lh.set_parse_object(p[0], p)
 
     # Root of the enum field declaration.
     def p_enum_field(self, p):
         '''enum_field : field_name EQ NUM SEMI'''
-        p[0] = EnumFieldDefinition(Name(p[1]), p[3])
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = EnumFieldDefinition(LU.i(p, 1), LU.i(p,3))
+        self.lh.set_parse_object(p[0], p)
 
     def p_enum_body_part(self, p):
         '''enum_body_part : enum_field
@@ -216,28 +244,29 @@ class ProtobufParser(object):
     # enum_definition ::= 'enum' ident '{' { ident '=' integer ';' }* '}'
     def p_enum_definition(self, p):
         '''enum_definition : ENUM NAME LBRACE enum_body_opt RBRACE'''
-        p[0] = EnumDefinition(Name(p[2]), p[4])
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = EnumDefinition(Name(LU.i(p, 2)), LU.i(p,4))
+        self.lh.set_parse_object(p[0], p)
 
     def p_extensions_to(self, p):
         '''extensions_to : MAX'''
         p[0] = ExtensionsMax()
+        self.lh.set_parse_object(p[0], p)
 
     def p_extensions_to2(self, p):
         '''extensions_to : NUM'''
-        p[0] = p[1]
+        p[0] = LU.i(p, 1)
 
     # extensions_definition ::= 'extensions' integer 'to' integer ';'
     def p_extensions_definition(self, p):
         '''extensions_definition : EXTENSIONS NUM TO extensions_to SEMI'''
-        p[0] = ExtensionsDirective(p[2], p[4])
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = ExtensionsDirective(LU.i(p,2), LU.i(p,4))
+        self.lh.set_parse_object(p[0], p)
 
     # message_extension ::= 'extend' ident '{' message_body '}'
     def p_message_extension(self, p):
         '''message_extension : EXTEND NAME LBRACE message_body RBRACE'''
-        p[0] = MessageExtension(Name(p[2]), p[4])
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = MessageExtension(Name(LU.i(p, 2)), LU.i(p,4))
+        self.lh.set_parse_object(p[0], p)
 
     def p_message_body_part(self, p):
         '''message_body_part : field_definition
@@ -265,14 +294,14 @@ class ProtobufParser(object):
     # message_definition = MESSAGE_ - ident("messageId") + LBRACE + message_body("body") + RBRACE
     def p_message_definition(self, p):
         '''message_definition : MESSAGE NAME LBRACE message_body RBRACE'''
-        p[0] = MessageDefinition(Name(p[2]), p[4])
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = MessageDefinition(Name(LU.i(p, 2)), LU.i(p,4))
+        self.lh.set_parse_object(p[0], p)
 
     # method_definition ::= 'rpc' ident '(' [ ident ] ')' 'returns' '(' [ ident ] ')' ';'
     def p_method_definition(self, p):
         '''method_definition : RPC NAME LPAR NAME RPAR RETURNS LPAR NAME RPAR'''
-        p[0] = MethodDefinition(Name(p[2]), Name(p[4]), Name(p[8]))
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = MethodDefinition(Name(LU.i(p, 2)), Name(LU.i(p, 4)), Name(LU.i(p, 8)))
+        self.lh.set_parse_object(p[0], p)
 
     def p_method_definition_opt(self, p):
         '''method_definition_opt : empty'''
@@ -290,36 +319,40 @@ class ProtobufParser(object):
     # service_definition = SERVICE_ - ident("serviceName") + LBRACE + ZeroOrMore(Group(method_definition)) + RBRACE
     def p_service_definition(self, p):
         '''service_definition : SERVICE NAME LBRACE method_definition_opt RBRACE'''
-        p[0] = ServiceDefinition(Name(p[2]), p[4])
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = ServiceDefinition(Name(LU.i(p, 2)), LU.i(p,4))
+        self.lh.set_parse_object(p[0], p)
 
     # package_directive ::= 'package' ident [ '.' ident]* ';'
     def p_package_directive(self,p):
         '''package_directive : PACKAGE dotname SEMI'''
-        p[0] = PackageStatement(Name(p[2]))
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = PackageStatement(Name(LU.i(p, 2)))
+        self.lh.set_parse_object(p[0], p)
 
     # import_directive = IMPORT_ - quotedString("importFileSpec") + SEMI
     def p_import_directive(self, p):
         '''import_directive : IMPORT STRING_LITERAL SEMI'''
-        p[0] = ImportStatement(Literal(p[2]))
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = ImportStatement(Literal(LU.i(p,2)))
+        self.lh.set_parse_object(p[0], p)
 
     def p_option_rvalue(self, p):
         '''option_rvalue : NUM
                          | TRUE
                          | FALSE'''
-        p[0] = p[1]
+        p[0] = LU(p, 1)
 
     def p_option_rvalue2(self, p):
         '''option_rvalue : STRING_LITERAL'''
-        p[0] = Literal(p[1])
+        p[0] = Literal(LU(p,1))
+
+    def p_option_rvalue3(self, p):
+        '''option_rvalue : NAME'''
+        p[0] = Name(LU.i(p,1))
 
     # option_directive = OPTION_ - ident("optionName") + EQ + quotedString("optionValue") + SEMI
     def p_option_directive(self, p):
         '''option_directive : OPTION NAME EQ option_rvalue SEMI'''
-        p[0] = OptionStatement(Name(p[2]), p[4])
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = OptionStatement(Name(LU.i(p, 2)), LU.i(p,4))
+        self.lh.set_parse_object(p[0], p)
 
     # topLevelStatement = Group(message_definition | message_extension | enum_definition | service_definition | import_directive | option_directive)
     def p_topLevel(self,p):
@@ -354,12 +387,12 @@ class ProtobufParser(object):
     # parser = Optional(package_directive) + ZeroOrMore(topLevelStatement)
     def p_protofile(self, p):
         '''protofile : package_definition statements'''
-        p[0] = ProtoFile(p[1], p[2])
-        LexHelper.set_parse_object(p[0], p)
+        p[0] = ProtoFile(LU.i(p,1), LU.i(p,2))
+        self.lh.set_parse_object(p[0], p)
 
     # Parsing starting point
     def p_goal(self, p):
-        '''goal : PLUSPLUSPLUS protofile'''
+        '''goal : STARTTOKEN protofile'''
         p[0] = p[2]
 
     def p_error(self, p):
@@ -384,8 +417,9 @@ class ProtobufAnalyzer(object):
             content += line
         return self.tokenize_string(content)
 
-    def parse_string(self, code, debug=0, lineno=1, prefix='+++'):
+    def parse_string(self, code, debug=0, lineno=1, prefix='+'):
         self.lexer.lineno = lineno
+        self.parser.offset = len(prefix)
         return self.parser.parse(prefix + code, lexer=self.lexer, debug=debug)
 
     def parse_file(self, _file, debug=0):
