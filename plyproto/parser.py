@@ -175,9 +175,9 @@ class ProtobufParser(object):
         '''field_directive_plus : field_directive
                                | field_directive_plus field_directive'''
         if len(p) == 2:
-            p[0] = [p[1]]
+            p[0] = [LU(p,1)]
         else:
-            p[0] = p[1] + [p[2]]
+            p[0] = p[1] + [LU(p,2)]
 
     def p_dotname(self, p):
         '''dotname : NAME

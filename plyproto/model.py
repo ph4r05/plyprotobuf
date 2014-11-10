@@ -35,9 +35,20 @@ class Visitor(object):
     # visitor.visit_Literal(self)
     # visitor.visit_Name(self)
     # visitor.visit_Proto(self)
+    # visitor.visit_LU(self)
+
+class Base(object):
+    parent = None
+
+    def v(self, obj, visitor):
+        if obj == None:
+            return
+        if not hasattr(obj, "accept"):
+            return
+        obj.accept(visitor)
 
 # Lexical unit - contains lexspan and linespan for later analysis.
-class LU(object):
+class LU(Base):
     def __init__(self, p, idx):
         self.p = p
         self.idx = idx
@@ -70,14 +81,14 @@ class LU(object):
         return self.describe()
 
     def accept(self, visitor):
-        pass
+        self.v(self.pval, visitor)
 
     def __iter__(self):
         for x in self.pval:
             yield x
 
 # Base node
-class SourceElement(object):
+class SourceElement(Base):
     '''
     A SourceElement is the base class for all elements that occur in a Protocol Buffers
     file parsed by plyproto.
@@ -150,7 +161,9 @@ class FieldDirective(SourceElement):
         self.value = value
 
     def accept(self, visitor):
-        visitor.visit_FieldDirective(self)
+        if visitor.visit_FieldDirective(self):
+            self.v(self.name, visitor)
+            self.v(self.value, visitor)
 
 class FieldType(SourceElement):
     def __init__(self, name, linespan=None, lexspan=None, p=None):
@@ -159,7 +172,8 @@ class FieldType(SourceElement):
         self.name = name
 
     def accept(self, visitor):
-        visitor.visit_FieldType(self)
+        if visitor.visit_FieldType(self):
+            self.v(self.name, visitor)
 
 class FieldDefinition(SourceElement):
     def __init__(self, field_modifier, ftype, name, fieldId, fieldDirective, linespan=None, lexspan=None, p=None):
@@ -172,7 +186,13 @@ class FieldDefinition(SourceElement):
         self.fieldDirective = fieldDirective
 
     def accept(self, visitor):
-        visitor.visit_FieldDefinition(self)
+        if visitor.visit_FieldDefinition(self):
+            self.v(self.name, visitor)
+            self.v(self.field_modifier, visitor)
+            self.v(self.ftype, visitor)
+            self.v(self.fieldId, visitor)
+            for s in self.fieldDirective:
+                self.v(s, visitor)
 
 class EnumFieldDefinition(SourceElement):
     def __init__(self, name, fieldId, linespan=None, lexspan=None, p=None):
@@ -182,7 +202,9 @@ class EnumFieldDefinition(SourceElement):
         self.fieldId = fieldId
 
     def accept(self, visitor):
-        visitor.visit_EnumFieldDefinition(self)
+        if visitor.visit_EnumFieldDefinition(self):
+            self.v(self.name, visitor)
+            self.v(self.fieldId, visitor)
 
 class EnumDefinition(SourceElement):
     def __init__(self, name, body, linespan=None, lexspan=None, p=None):
@@ -193,6 +215,7 @@ class EnumDefinition(SourceElement):
 
     def accept(self, visitor):
         if visitor.visit_EnumDefinition(self):
+            self.v(self.name, visitor)
             for s in self.body:
                 s.accept(visitor)
 
@@ -205,6 +228,7 @@ class MessageDefinition(SourceElement):
 
     def accept(self, visitor):
         if visitor.visit_MessageDefinition(self):
+            self.v(self.name, visitor)
             for s in self.body:
                 s.accept(visitor)
 
@@ -217,6 +241,7 @@ class MessageExtension(SourceElement):
 
     def accept(self, visitor):
         if visitor.visit_MessageExtension(self):
+            self.v(self.name, visitor)
             for s in self.body:
                 s.accept(visitor)
 
@@ -229,7 +254,10 @@ class MethodDefinition(SourceElement):
         self.name3 = name3
 
     def accept(self, visitor):
-        visitor.visit_MethodDefinition(self)
+        if visitor.visit_MethodDefinition(self):
+            self.v(self.name, visitor)
+            self.v(self.name2, visitor)
+            self.v(self.name3, visitor)
 
 class ServiceDefinition(SourceElement):
     def __init__(self, name, body, linespan=None, lexspan=None, p=None):
@@ -240,6 +268,7 @@ class ServiceDefinition(SourceElement):
 
     def accept(self, visitor):
         if visitor.visit_ServiceDefinition(self):
+            self.v(self.name, visitor)
             for s in self.body:
                 s.accept(visitor)
 
@@ -254,7 +283,9 @@ class ExtensionsDirective(SourceElement):
         self.toVal = toVal
 
     def accept(self, visitor):
-        visitor.visit_ExtensionsDirective(self)
+        if visitor.visit_ExtensionsDirective(self):
+            self.v(self.fromVal, visitor)
+            self.v(self.toVal, visitor)
 
 class Literal(SourceElement):
 
@@ -321,5 +352,6 @@ class ProtoFile(SourceElement):
 
     def accept(self, visitor):
         if visitor.visit_Proto(self):
+            self.v(self.pkg, visitor)
             for s in self.body:
                 s.accept(visitor)
