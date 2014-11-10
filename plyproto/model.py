@@ -39,6 +39,8 @@ class Visitor(object):
 
 class Base(object):
     parent = None
+    lexspan = None
+    linespan = None
 
     def v(self, obj, visitor):
         if obj == None:
@@ -130,6 +132,7 @@ class PackageStatement(SourceElement):
         super(PackageStatement, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['name']
         self.name = name
+        self.name.parent = self
 
     def accept(self, visitor):
         visitor.visit_PackageStatement(self)
@@ -139,6 +142,7 @@ class ImportStatement(SourceElement):
         super(ImportStatement, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['name']
         self.name = name
+        self.name.parent = self
 
     def accept(self, visitor):
         visitor.visit_ImportStatement(self)
@@ -148,7 +152,9 @@ class OptionStatement(SourceElement):
         super(OptionStatement, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['name', 'value']
         self.name = name
+        self.name.parent = self
         self.value = value
+        self.value.parent = self
 
     def accept(self, visitor):
         visitor.visit_OptionStatement(self)
@@ -158,7 +164,9 @@ class FieldDirective(SourceElement):
         super(FieldDirective, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['name', 'value']
         self.name = name
+        self.name.parent = self
         self.value = value
+        self.value.parent = self
 
     def accept(self, visitor):
         if visitor.visit_FieldDirective(self):
@@ -170,6 +178,7 @@ class FieldType(SourceElement):
         super(FieldType, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['name']
         self.name = name
+        self.name.parent = self
 
     def accept(self, visitor):
         if visitor.visit_FieldType(self):
@@ -180,10 +189,16 @@ class FieldDefinition(SourceElement):
         super(FieldDefinition, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['field_modifier', 'ftype', 'name', 'fieldId', 'fieldDirective']
         self.name = name
+        self.name.parent = self
         self.field_modifier = field_modifier
+        self.field_modifier.parent = self
         self.ftype = ftype
+        self.ftype.parent = self
         self.fieldId = fieldId
+        self.fieldId.parent = self
         self.fieldDirective = fieldDirective
+        for s in self.fieldDirective:
+            s.parent = self
 
     def accept(self, visitor):
         if visitor.visit_FieldDefinition(self):
@@ -199,7 +214,9 @@ class EnumFieldDefinition(SourceElement):
         super(EnumFieldDefinition, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['name', 'fieldId']
         self.name = name
+        self.name.parent = self
         self.fieldId = fieldId
+        self.fieldId.parent = self
 
     def accept(self, visitor):
         if visitor.visit_EnumFieldDefinition(self):
@@ -211,7 +228,10 @@ class EnumDefinition(SourceElement):
         super(EnumDefinition, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['name', 'body']
         self.name = name
+        self.name.parent = self
         self.body = body
+        for s in self.body:
+            s.parent = self
 
     def accept(self, visitor):
         if visitor.visit_EnumDefinition(self):
@@ -224,7 +244,10 @@ class MessageDefinition(SourceElement):
         super(MessageDefinition, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['name', 'body']
         self.name = name
+        self.name.parent = self
         self.body = body
+        for s in self.body:
+            s.parent = self
 
     def accept(self, visitor):
         if visitor.visit_MessageDefinition(self):
@@ -237,7 +260,10 @@ class MessageExtension(SourceElement):
         super(MessageExtension, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['name', 'body']
         self.name = name
+        self.name.parent = self
         self.body = body
+        for s in self.body:
+            s.parent = self
 
     def accept(self, visitor):
         if visitor.visit_MessageExtension(self):
@@ -250,8 +276,11 @@ class MethodDefinition(SourceElement):
         super(MethodDefinition, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['name', 'name2', 'name3']
         self.name = name
+        self.name.parent = self
         self.name2 = name2
+        self.name.parent = self
         self.name3 = name3
+        self.name.parent = self
 
     def accept(self, visitor):
         if visitor.visit_MethodDefinition(self):
@@ -264,6 +293,7 @@ class ServiceDefinition(SourceElement):
         super(ServiceDefinition, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['name', 'body']
         self.name = name
+        self.name.parent = self
         self.body = body
 
     def accept(self, visitor):
@@ -280,7 +310,9 @@ class ExtensionsDirective(SourceElement):
         super(ExtensionsDirective, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['fromVal', 'toVal']
         self.fromVal = fromVal
+        self.fromVal.parent = self
         self.toVal = toVal
+        self.toVal.parent = self
 
     def accept(self, visitor):
         if visitor.visit_ExtensionsDirective(self):
@@ -348,7 +380,10 @@ class ProtoFile(SourceElement):
         super(ProtoFile, self).__init__(linespan=linespan, lexspan=lexspan, p=p)
         self._fields += ['pkg', 'body']
         self.pkg = pkg
+        self.pkg.parent = self
         self.body = body
+        for s in self.body:
+            s.parent = self
 
     def accept(self, visitor):
         if visitor.visit_Proto(self):
