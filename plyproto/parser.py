@@ -20,7 +20,7 @@ class ProtobufLexer(object):
         'LINE_COMMENT', 'BLOCK_COMMENT',
 
         'LBRACE', 'RBRACE', 'LBRACK', 'RBRACK',
-        'LPAR', 'RPAR', 'EQ', 'SEMI'
+        'LPAR', 'RPAR', 'EQ', 'SEMI', 'DOT'
 
     ] + [k.upper() for k in keywords]
     literals = '()+-*/=?:,.^|&~!=[]{};<>@%'
@@ -41,11 +41,13 @@ class ProtobufLexer(object):
     t_RPAR = '\\)'
     t_EQ = '='
     t_SEMI = ';'
+    t_DOT = '\\.'
     t_ignore = ' \t\f'
 
     def t_NAME(self, t):
         '[A-Za-z_$][A-Za-z0-9_$]*'
         if t.value in ProtobufLexer.keywords:
+            #print "type: %s val %s t %s" % (t.type, t.value, t)
             t.type = t.value.upper()
         return t
 
@@ -126,22 +128,34 @@ class ProtobufParser(object):
         else:
             p[0] = p[1] + [p[2]]
 
+    def p_dotname(self, p):
+        '''dotname : NAME
+                   | dotname DOT NAME'''
+        p[0] = p[1]
+
+    # Hack for cases when there is a field named 'message' or 'max'
+    def p_fieldName(self, p):
+        '''field_name : NAME
+                      | MESSAGE
+                      | MAX'''
+        p[0] = p[1]
+
     def p_field_type(self, p):
         '''field_type : primitive_type'''
         p[0] = FieldType(p[1])
 
     def p_field_type2(self, p):
-        '''field_type : NAME'''
+        '''field_type : dotname'''
         p[0] = Name(p[1])
 
     # Root of the field declaration.
     def p_field_definition(self, p):
-        '''field_definition : field_modifier field_type NAME EQ field_id field_directive_times SEMI'''
+        '''field_definition : field_modifier field_type field_name EQ field_id field_directive_times SEMI'''
         p[0] = FieldDefinition(p[1], p[2], Name(p[3]), p[5], p[6])
 
     # Root of the enum field declaration.
     def p_enum_field(self, p):
-        '''enum_field : NAME EQ NUM SEMI'''
+        '''enum_field : field_name EQ NUM SEMI'''
         p[0] = EnumFieldDefinition(Name(p[1]), p[3])
 
     def p_enum_body_part(self, p):
@@ -242,7 +256,7 @@ class ProtobufParser(object):
 
     # package_directive ::= 'package' ident [ '.' ident]* ';'
     def p_package_directive(self,p):
-        '''package_directive : PACKAGE NAME SEMI'''
+        '''package_directive : PACKAGE dotname SEMI'''
         p[0] = PackageStatement(Name(p[2]))
 
     # import_directive = IMPORT_ - quotedString("importFileSpec") + SEMI
